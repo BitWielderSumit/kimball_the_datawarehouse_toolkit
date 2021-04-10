@@ -346,17 +346,68 @@ Do not implement this.
 
 ## Advanced Dimension Techniques
 
+### Dimension-to-Dimension Table Joins
+* Dimensions can contain references to other dimensions. 
+* Although these relation ships can be modeled with outrigger dimensions, in some cases, the existence of a foreign key to the outrigger dimension in the base dimension can result in explosive growth of the base dimension because type 2 changes in the outrigger force corresponding type 2 processing in the base dimension.
+* This explosive growth can often be avoided if you demote the correlation between dimensions by placing the foreign key of the outrigger in the fact table rather than in the base dimension. This means the correlation between the dimensions can be discovered only by traversing the fact table, but this may be acceptable, especially if the fact table is a periodic snapshot where all the keys for all the dimensions are guaranteed to be present for each reporting period.
+
+### Multivalued Dimensions and Bridge Tables
+* In a classic dimensional schema, each dimension attached to a fact table has a single value consistent with the fact table’s grain.
+* But there are a number of situations in which a dimension is legitimately multivalued.
+* For example, a patient receiving a healthcare treatment may have multiple simultaneous diagnoses.
+* In these cases, the multivalued dimension must be attached to the fact table through a group dimension key to a bridge table with one row for each simultaneous diagnosis in a group.
+
+### Time Varying Multivalued Bridge Tables
+* A multivalued bridge table may need to be based on a type 2 slowly changing dimension. For example, the bridge table that implements the many-to-many relationship between bank accounts and individual customers usually must be based on type 2 account and customer dimensions. In this case, to prevent incorrect linkages between accounts and customers, the bridge table must include effective and expiration date/time stamps, and the requesting application must constrain the bridge table to a specific moment in time to produce a consistent snapshot.
+
+### Behavior Tag Time Series
+Almost all text in a data warehouse is descriptive text in dimension tables. Data mining customer cluster analyses typically results in textual behavior tags, often identified on a periodic basis. In this case, the customers behavior measurements over time become a sequence of these behavior tags; this time series should be stored as positional attributes in the customer dimension, along with an optional text string for the complete sequence of tags. The behavior tags are modeled in a positional design because the behavior tags are the target of complex simultaneous queries rather than numeric computations.
+
+### Aggregated Facts as Dimension Attributes
+* Business users are often interested in constraining the customer dimension based on aggregated performance metrics, such as fi ltering on all customers who spent over a certain dollar amount during last year or perhaps over the customer’s lifetime.
+* Selected aggregated facts can be placed in a dimension as targets for constraining and as row labels for reporting. The metrics are often presented as banded ranges in the dimension table. Dimension attributes representing aggregated performance metrics add burden to the ETL processing, but ease the analytic burden in the BI layer.
+
+### Dynamic Value Bands
+A dynamic value banding report is organized as a series of report row headers that define a progressive set of varying-sized ranges of a target numeric fact. 
+For instance, a common value banding report in a bank has many rows with labels such as “Balance from 0 to $10,” “Balance from $10.01 to $25,” and so on. 
+This kind of report is dynamic because the specific row headers are defi ned at query time, not
+during the ETL processing. The row definitions can be implemented in a small value banding dimension table that is joined via greater-than/less-than joins to the fact table, or the definitions can exist only in an SQL CASE statement. 
+The value banding dimension approach is probably higher performing, especially in a columnar database, because the CASE statement approach involves an almost unconstrained relation scan of the fact table.
+
+### Text Comments Dimension
+Rather than treating freeform comments as textual metrics in a fact table, they should be stored outside the fact table in a separate comments dimension (or as attributes in a dimension with one row per transaction if the comments’ cardinality matches the number of unique transactions) with a corresponding foreign key in the fact table.
 
 
+### Multiple Time Zones
+To capture both universal standard time, as well as local times in multi-time zone applications, dual foreign keys should be placed in the aff ected fact tables that join to two role-playing date (and potentially time-of-day) dimension tables.
+
+### Measure Type Dimensions
+Sometimes when a fact table has a long list of facts that is sparsely populated in any individual row, it is tempting to create a measure type dimension that collapses the fact table row down to a single generic fact identifi ed by the measure type dimension. We generally do not recommend this approach.
+
+### Step Dimensions
+Sequential processes, such as web page events, normally have a separate row in a transaction fact table for each step in a process. To tell where the individual step fits into the overall session, a step dimension is used that shows what step number is represented by the current step and how many more steps were required to complete the session.
+
+### Hot Swappable Dimensions
+Hot swappable dimensions are used when the same fact table is alternatively paired with different copies of the same dimension. For example, a single fact table containing stock ticker quotes could be simultaneously exposed to multiple separate investors, each of whom has unique and proprietary attributes assigned to different
+stocks.
+
+### Abstract Generic Dimensions
+Some modelers are attracted to abstract generic dimensions. For example, their schemas include a single generic location dimension rather than embedded geographic attributes in the store, warehouse, and customer dimensions.
+Similarly, their person dimension includes rows for employees, customers, and vendor contacts because they are all human beings, regardless that significantly diff erent attributes are collected for each type. Abstract generic dimensions should be avoided in dimensional models. The attribute sets associated with each type often differ. If the attributes are common, such as a geographic state, then they should be uniquely labeled to distinguish a store’s state from a customer’s. Finally, dumping all varieties of locations, people, or products into a single dimension invariably results in
+a larger dimension table.
+
+### Audit Dimensions
+* When a fact table row is created in the ETL back room, it is helpful to create an audit dimension containing the ETL processing metadata known at the time.
+* Useful audit dimension attributes could include environment variables describing the versions of ETL code used to create the fact rows or the ETL process execution time stamps.
+* These environment variables are especially useful for compliance and auditing purposes because they enable BI tools to drill down to determine which rows were created with what versions of the ETL software.
+
+### Late Arriving Dimensions
+* Sometimes the facts from an operational business process arrive minutes, hours, days, or weeks before the associated dimension context. For example, in a real-time data delivery situation, an inventory depletion row may arrive showing the natural key of a customer committing to purchase a particular product. In a real-time ETL system, this row must be posted to the BI layer, even if the identity of the customer or product cannot be immediately determined. In these cases, special dimension rows are created with the unresolved natural keys as attributes. 
+* Of course, these dimension rows must contain generic unknown values for most of the descriptive columns; presumably the proper dimensional context will follow from the source at a later time. When this dimensional context is eventually supplied, the placeholder dimension rows are updated with type 1 overwrites. 
+* Late arriving dimension data also occurs when retroactive changes are made to type 2 dimension attributes. In this case, a new row needs to be inserted in the dimension table, and then the associated fact rows must be restated.
 
 
-
-
-
-
-
-
-
+ 
 
 
 
