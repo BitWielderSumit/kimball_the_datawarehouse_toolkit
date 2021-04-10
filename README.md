@@ -212,6 +212,163 @@ A dimension can contain a reference to another dimension table. For instance, a 
 
 
 ## Integration via Conformed Dimensions
+One of the marquee successes of the dimensional modeling approach has been to define a simple but powerful recipe for integrating data from different business processes.
+
+### Conformed Dimensions
+* Dimension tables conform when attributes in separate dimension tables have the same column names and domain contents.
+* When a conformed attribute is used as the row header (that is, the grouping column in the SQL query), the results from the separate fact tables can be aligned on the same rows in a drill-across report.
+* e.g. Time is confirmed dimension ( common dimension ) which can be used on HR as well as Finance datamart. 
+* This is the essence of integration in an enterprise DW/BI system. Conformed dimensions, defined once in collaboration with the business’s data governance representatives, are reused across fact tables; they deliver both analytic consistency and reduced future development costs because the wheel is not repeatedly re-created.
+
+### Shrunken Dimensions
+
+* Shrunken dimensions are conformed dimensions that are a subset of rows and/or columns of a base dimension.
+* Shrunken rollup dimensions are required when constructing aggregate fact tables. They are also necessary for business processes that naturally capture data at a higher level of granularity, such as a forecast by month and brand (instead of the more atomic date and product associated with sales data).
+* Another case of conformed dimension subsetting occurs when two dimensions are at the same level of detail, but one represents only a subset of rows.
+
+**Wordings from IBM.com**
+* A shrunken dimension entity is a perfect subset of a more detailed, granular dimension entity. 
+* In this case, the attributes that are common to both the detailed and shrunken subset dimension have the same attribute names, definitions, and domain values.
+
+
+### Drilling Across
+* Drilling across simply means making separate queries against two or more fact tables where the row headers of each query consist of identical conformed attributes. The answer sets from the two queries are aligned by performing a sort-merge operation on the common dimension attribute row headers. BI tool vendors refer to this functionality by various names, including stitch and multipass query.
+
+### Value Chain
+
+### Enterprise Data Warehouse Bus Architecture
+* The enterprise data warehouse bus architecture provides an incremental approach to building the enterprise DW/BI system.
+* This architecture decomposes the DW/ BI planning process into manageable pieces by focusing on business processes, while delivering integration via standardized conformed dimensions that are reused across processes.
+* It provides an architectural framework, while also decomposing the program to encourage manageable agile implementations corresponding to the rows on the enterprise data warehouse bus matrix.
+* The bus architecture is technology and database platform independent; both relational and OLAP dimensional structures can participate.
+
+### Enterprise Data Warehouse Bus Matrix
+* The enterprise data warehouse bus matrix is the essential tool for designing and communicating the enterprise data warehouse bus architecture
+* The rows of the matrix are business processes and the columns are dimensions
+* The shaded cells of the matrix indicate whether a dimension is associated with a given business process.
+* The design team scans each row to test whether a candidate dimension is well-defi ned for the business process and also scans each column to see where a dimension should be conformed across multiple business processes.
+* Besides the technical design considerations, the bus matrix is used as input to prioritize DW/BI projects with business management as teams should implement one row of the matrix at a time.
+
+
+### Detailed Implementation Bus Matrix
+* The detailed implementation bus matrix is a more granular bus matrix where each business process row has been expanded to show specifi c fact tables or OLAP cubes.
+* At this level of detail, the precise grain statement and list of facts can be documented.
+
+## Dealing with Slowly Changing Dimension Attributes
+**Type 0: Retain Original**
+With type 0, the dimension attribute value never changes, so facts are always grouped by this original value.
+
+**Type 1: Overwrite**
+With type 1, the old attribute value in the dimension row is overwritten with the new value; type 1 attributes always refl ects the most recent assignment, and therefore this technique destroys history
+
+**Type 2: Add New Row**
+* Type 2 changes add a new row in the dimension with the updated attribute values.
+* This requires generalizing the primary key of the dimension beyond the natural or durable key because there will potentially be multiple rows describing each member.
+* A minimum of three additional columns should be added to the dimension row with type 2 changes: 1) row eff ective date or date/time stamp; 2) row expiration date or date/time stamp; and 3) current row indicator.
+
+**Type 3: Add New Attribute** 
+* Type 3 changes add a new attribute in the dimension to preserve the old attribute value; the new value overwrites the main attribute as in a type 1 change. 
+* This kind of type 3 change is sometimes called an alternate reality. A business user can group and filter fact data by either the current value or alternate reality. 
+* This slowly changing dimension technique is used relatively infrequently.
+
+**Type 4: Add Mini-Dimension**
+* The type 4 technique is used when a group of attributes in a dimension rapidly changes and is split off to a mini-dimension. 
+* This situation is sometimes called a rapidly changing monster dimension. 
+* Frequently used attributes in multimillion-row dimension tables are mini-dimension design candidates, even if they don’t frequently change. 
+* The type 4 mini-dimension requires its own unique primary key; the primary keys of both the base dimension and mini dimension are captured in the associated fact tables.
+
+Add explanation with solid case to justify this.
+
+**Type 5: Add Mini-Dimension and Type 1 Outrigger**
+**Type 6: Add Type 1 Attributes to Type 2 Dimension** 
+**Type 7: Dual Type 1 and Type 2 Dimensions**
+
+## Dealing with Dimension Hierarchies
+
+### Fixed Depth Positional Hierarchies
+* A fixed depth hierarchy is a series of **many-to-one** relationships
+* such as product to brand to category to department
+
+### Slightly Ragged/Variable Depth Hierarchies
+* Slightly ragged hierarchies don’t have a fi xed number of levels, but the range in depth is small.
+* Geographic hierarchies often range in depth from perhaps three levels to six levels.
+* Rather than using the complex machinery for unpredictably variable hierarchies, you can force-fi t slightly ragged hierarchies into a fi xed depth positional design with separate dimension attributes for the maximum number of levels, and then populate the attribute value based on rules from the business.
+
+### Ragged/Variable Depth Hierarchies with Hierarchy Bridge Tables
+* Ragged hierarchies of indeterminate depth are difficult to model and query in a relational database.
+* The bridge table contains a row for every possible path in the ragged hierarchy and enables all forms of hierarchy traversal to be accomplished with standard SQL
+
+
+### Ragged/Variable Depth Hierarchies with Pathstring Attributes
+* The use of a bridge table for ragged variable depth hierarchies can be avoided by implementing a pathstring attribute in the dimension. For each row in the dimension, the pathstring attribute contains a specially encoded text string containing the complete path description from the supreme node of a hierarchy down to the node described by the particular dimension row.
+
+## Advanced Fact Table Techniques
+
+### Fact Table Surrogate Keys
+* Fact table surrogate keys, which are not associated with any dimension, are assigned sequentially during the ETL load process and are used  1) as the single column primary key of the fact table; 2) to serve as an immediate identifi er of a fact table row without navigating multiple dimensions for ETL purposes; 3) to allow an interrupted load process to either back out or resume; 4) to allow fact table update operations to be decomposed into less risky inserts plus deletes.
+
+### Centipede Fact Tables
+Some designers create separate normalized dimensions for each level of a many-to-one hierarchy, such as a date dimension, month dimension, quarter dimension, and year dimension, and then include all these foreign keys in a fact table. This results in a centipede fact table with dozens of hierarchically related dimensions. Centipede
+fact tables should be avoided.
+
+### Numeric Values as Attributes or Facts
+Designers sometimes encounter numeric values that don’t clearly fall into either the fact or dimension attribute categories. A classic example is a product’s standard list price. If the numeric value is used primarily for calculation purposes, it likely belongs in the fact table. If a stable numeric value is used predominantly for fi ltering and grouping, it should be treated as a dimension attribute; the discrete numeric values can be supplemented with value band attributes (such as $0-50). In some cases, it is useful to model the numeric value as both a fact and dimension attribute, such as a quantitative on-time delivery metric and qualitative textual descriptor.
+
+### Lag/Duration Facts
+Accumulating snapshot fact tables capture multiple process milestones, each with a date foreign key and possibly a date/time stamp. Business users often want to analyze the lags or durations between these milestones; sometimes these lags are just the diff erences between dates, but other times the lags are based on more complicated business rules. If there are dozens of steps in a pipeline, there could be hundreds of possible lags. Rather than forcing the user’s query to calculate each possible lag from the date/time stamps or date dimension foreign keys, just one time lag can be
+stored for each step measured against the process’s start point. Then every possible lag between two steps can be calculated as a simple subtraction between the two lags stored in the fact table.
+
+### Header/Line Fact Tables
+Operational transaction systems often consist of a transaction header row that’s associated with multiple transaction lines. With header/line schemas (also known as parent/child schemas), all the header-level dimension foreign keys and degenerate dimensions should be included on the line-level fact table.
+
+### Allocated Facts
+It is quite common in header/line transaction data to encounter facts of differing granularity, such as a header freight charge. You should strive to allocate the header facts down to the line level based on rules provided by the business, so the allocated facts can be sliced and rolled up by all the dimensions. In many cases, you can avoid creating a header-level fact table, unless this aggregation delivers query performance advantages.
+
+### Profit and Loss Fact Tables Using Allocations
+* Fact tables that expose the full equation of profi t are among the most powerful deliverables of an enterprise DW/BI system. 
+* The equation of profit is (revenue) – (costs) = (profit). 
+* Fact tables ideally implement the profit equation at the grain of the atomic revenue transaction and contain many components of cost. * * Because these tables are at the atomic grain, numerous rollups are possible, including customer profi tability, product profitability, promotion profitability, channel profitability, and others.
+
+### Multiple Currency Facts
+Some business processes require facts to be stated simultaneously in several units of measure. For example, depending on the perspective of the business user, a supply chain may need to report the same facts as pallets, ship cases, retail cases, or individual scan units. If the fact table contains a large number of facts, each of which must be expressed in all units of measure, a convenient technique is to store the facts once in the table at an agreed standard unit of measure, but also simultaneously store conversion factors between the standard measure and all the others.
+This fact table could be deployed through views to each user constituency, using an appropriate selected conversion factor. The conversion factors must reside in the underlying fact table row to ensure the view calculation is simple and correct, while minimizing query complexity.
+
+### Year-to-Date Facts
+Do not implement this.
+
+### Timespan Tracking in Fact Tables
+* There are three basic fact table grains: transaction, periodic snapshot, and accumulating snapshot.
+* In isolated cases, it is useful to add a row eff ective date, row expiration date, and current row indicator to the fact table, much like you do with type 2 slowly changing dimensions, to capture a timespan when the fact row was effective. Although an unusual pattern, this pattern addresses scenarios such as slowly changing inventory balances where a frequent periodic snapshot would load identical rows with each snapshot.
+
+### Late Arriving Facts
+* A fact row is late arriving if the most current dimensional context for new fact rows does not match the incoming row. 
+* This happens when the fact row is delayed. In this case, the relevant dimensions must be searched to find the dimension keys that were effective when the late arriving measurement event occurred.
+
+## Advanced Dimension Techniques
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
