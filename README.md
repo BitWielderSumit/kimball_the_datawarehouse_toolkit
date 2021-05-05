@@ -406,26 +406,108 @@ a larger dimension table.
 * Of course, these dimension rows must contain generic unknown values for most of the descriptive columns; presumably the proper dimensional context will follow from the source at a later time. When this dimensional context is eventually supplied, the placeholder dimension rows are updated with type 1 overwrites. 
 * Late arriving dimension data also occurs when retroactive changes are made to type 2 dimension attributes. In this case, a new row needs to be inserted in the dimension table, and then the associated fact rows must be restated.
 
+# Chapter 3: Retail Sales
 
- 
+## Four-Step Dimensional Design Process
+Throughout this book, we will approach the design of a dimensional model by consistently considering four steps, as the following sections discuss in more detail.
+
+### Step 1: Select the Business Process
+* Business processes are frequently expressed as action verbs because they represent activities that the business performs.
+* Business processes are typically supported by an operational system, such as the billing or purchasing system.
+* It’s also worth noting what a business process is not. Organizational business departments or functions do not equate to business processes. By focusing on processes, rather than on functional departments, consistent information is delivered more economically throughout the organization. If you design departmentally bound dimensional models, you inevitably duplicate data with different labels and data values. The best way to ensure consistency is to publish the data once.
+
+### Step 2: Declare the Grain
+Declaring the grain means specifying exactly what an individual fact table row represent 
+
+**Example grain declarations include:**
+
+* One row per scan of an individual product on a customer’s sales transaction
+* One row per line item on a bill from a doctor
+* One row per individual boarding pass scanned at an airport gate
+* One row per daily snapshot of the inventory levels for each item in a warehouse
+* One row per bank account each month
+
+If the grain isn’t clearly defi ned, the whole design rests on
+quicksand;
+An inappropriate grain haunts a DW/BI implementation!
+It is extremely important that everyone on the design team reaches agreement on the fact table’s granularity. Having said this, you may discover in steps 3 or 4 of the design process that the grain statement is wrong. This is okay, but then you must return to step 2, restate the grain correctly, and revisit steps 3 and 4 again.
+
+### Step 3: Identify the Dimensions
+After the grain of the fact table has been chosen, the choice of dimensions is straight forward. The product and transaction fall out immediately. Within the framework of the primary dimensions, you can ask whether other dimensions can be attributed to the POS measurements, such as the date of the sale, the store where the sale
+occurred, the promotion under which the product is sold, the cashier who handled the sale, and potentially the method of payment. We express this as another design principle.
+
+### Step 4: Identify the Facts
+* The facts must be true to the grain: the individual product line item on the POS transaction in this case. 
+* When considering potential facts, you may again discover adjustments need to be made to either your earlier grain assumptions or choice of dimensions.
+* The facts collected by the POS system include the sales quantity (for example, the number of cans of chicken noodle soup), per unit regular, discount, and net paid prices, and extended discount and sales dollar amounts. The extended sales dollar amount equals the sales quantity multiplied by the net unit price. Likewise, the extended discount dollar amount is the sales quantity multiplied by the unit discount amount. Some sophisticated POS systems also provide a standard dollar cost for the product as delivered to the store by the vendor. Presuming this cost fact is readily available and doesn’t require a heroic activity-based costing initiative,
+
+## Dimension Table Details
+
+### Date Dimension
+The date dimension is a special dimension because it is the one dimension nearly guaranteed to be in every dimensional model since virtually every business process captures a time series of performance metrics. In fact, date is usually the first dimension in the underlying partitioning scheme of the database so that the successive time interval data loads are placed into virgin territory on the disk.
+
+```
+Note: Dimensional models always need an explicit date dimension table. There are many date attributes not supported by the SQL date function, including week numbers, fiscal periods, seasons, holidays, and weekends. Rather than attempting to determine these nonstandard calendar calculations in a query, you should look them up in a date dimension table.
+```
+### Flags and Indicators as Textual Attributes
+
+Like many operational flags and indicators, the date dimension’s holiday indicator is a simple indicator with two potential values. Because dimension table attributes serve as report labels and values in pull-down query filter lists, this indicator should
+be populated with meaningful values such as Holiday or Non-holiday instead of the cryptic Y/N, 1/0, or True/False
+
+### Time-of-Day as a Dimension or Fact
+Although date and time are comingled in an operational date/time stamp, time-of-day is typically separated from the date dimension to avoid a row count explosion in the date dimension
+
+### Product Dimension
+The product dimension describes every SKU in the grocery store.
+
+### Flatten Many-to-One Hierarchies
+* The product dimension represents the many descriptive attributes of each SKU. The merchandise hierarchy is an important group of attributes.
+* SKU ---> Brand --> Categories --> Department.
+
+```
+Note: Keeping the repeated low cardinality values in the primary dimension table is a fundamental dimensional modeling technique. Normalizing these values into separate tables defeats the primary goals of simplicity and performance, as discussed in “Resisting Normalization Urges” later in this chapter.
+```
+![](Images/Figure3_7.png)
 
 
+### Store Dimension
+* The store dimension is the case study's primary geographic dimension. Each store can be thought of as a location.
+* Stores likely also roll up an internal organization hierarchy consisting of store districts and regions.
+ ### DATES WITHIN DIMENSION TABLES
+
+* The first open date and last remodel date in the store dimension could be date type columns. However, if users want to group and constrain on nonstandard calendar attributes (like the open date's fiscal period), then they are typically join keys to copies of the date dimension table.
+* 
+
+## Promotion Dimension
+* The various possible causal conditions are highly correlated. A temporary price reduction usually is associated with an ad and perhaps an end aisle display.
+* For this reason, it makes sense to create one row in the promotion dimension for each combination of promotion conditions that occurs.
+* Over the course of a year, there may be 1,000 ads, 5,000 temporary price reductions, and 1,000 end aisle displays, but there may be only 10,000 combinations of these three conditions affecting any particular product.
+
+on the other hand, The trade-offs in favor of separating the causal mechanisms into four distinct dimension tables include the following:
+
+* The separated dimensions may be more understandable to the business community if users think of these mechanisms separately. This would be revealed during the business requirement interviews.
+* Administration of the separate dimensions may be more straightforward than administering a combined dimension.
+
+### NULL FOREIGN KEYS, ATTRIBUTES, AND FACTS
+You must avoid null keys in the fact table. A proper design includes a row in the corresponding dimension table to identify that the dimension is not applicable to the measurement.
+
+* We sometimes encounter nulls as dimension attribute values. These usually result when a given dimension row has not been fully populated, or when there are attributes that are not applicable to all the dimension's rows. In either case, we recommend substituting a descriptive string, such as Unknown or Not Applicable,
+* 
+
+TBD .. The notes in between this passage
+
+### Factless Fact Tables
+* What products were on promotion but did not sell?
+* In the relational world, a promotion coverage or event fact table is needed to answer the question concerning what didn't happen.
+* The promotion coverage fact table keys would be date, product, store, and promotion
+* We refer to it as a factless fact table because it has no measurement metrics;
+* First, you'd query the promotion factless fact table to determine the universe of products that were on promotion on a given day.
+* You'd then determine what products sold from the POS sales fact table. The answer to our original question is the set difference between these two lists of products. 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+### Degenerate Dimension Surrogate Keys
+* Although surrogate keys aren't typically assigned to degenerate dimensions, each situation needs to be evaluated to determine if one is required.
+* A surrogate key is necessary if the transaction control numbers are not unique across locations or get reused. For example, the retailer's POS system may not assign unique transaction numbers across stores.
+* You may need to assign a surrogate key (and create an associated dimension table)
+*  Obviously, control number dimensions modeled in this way with corresponding dimension tables are no longer degenerate.
 
